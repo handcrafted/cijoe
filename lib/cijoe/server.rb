@@ -1,5 +1,6 @@
 require 'sinatra'
 require 'erb'
+require 'yaml'
 
 class CIJoe
   class Server < Sinatra::Base
@@ -30,20 +31,30 @@ class CIJoe
       end
     end
 
-    def self.start(host, port, project_path)
-      check_project(project_path)
+    def self.start(host, port, config_file)
+      projects = {}
+      config = YAML.load_file(config_file)
 
-      joe = CIJoe.new(project_path)
+      config.each do |key, project|
+        cijoe = CIJoe.new(project["path"])
+        projects[cijoe.project] = cijoe
+      end
+      
+      get '/:project_name' do
+        pass unless params[:project_name]
+        erb(:template, {}, :joe => projects[params[:project_name]])
+      end
+      
       get '/' do
-        erb(:template, {}, :joe => joe)
+        erb(:index, {}, :projects => projects)
       end
 
-      post '/' do
+      post '/:project_name' do
         payload = params[:payload].to_s
-        if payload.empty? || payload.include?(joe.git_branch)
-          joe.build
+        if payload.empty? || payload.include?(projects[params[:project_name]].git_branch)
+          projects[params[:project_name]].build
         end
-        redirect '/'
+        redirect "/#{params[:project_name]}"
       end
 
       setup_auth
