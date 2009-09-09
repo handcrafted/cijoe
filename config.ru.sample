@@ -1,0 +1,11 @@
+$LOAD_PATH.unshift(File.join(File.dirname(__FILE__), 'lib'))
+
+require 'sinatra'
+require 'cijoe'
+
+root_dir = File.dirname(__FILE__)
+
+CIJoe::Server.set :environment, ENV['RACK_ENV'].to_sym
+CIJoe::Server.set :projects_config_file, "#{root_dir}/config/projects.yml"
+
+run CIJoe::Server

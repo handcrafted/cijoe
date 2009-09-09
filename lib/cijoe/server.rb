@@ -10,6 +10,23 @@ class CIJoe
     set :public, "#{dir}/public"
     set :static, true
 
+    get '/:project_name' do
+      pass unless params[:project_name]
+      erb(:template, {}, :joe => @projects[params[:project_name]])
+    end
+    
+    get '/' do
+      erb(:index, {}, :projects => @projects)
+    end
+
+    post '/:project_name' do
+      payload = params[:payload].to_s
+      if payload.empty? || payload.include?(@projects[params[:project_name]].git_branch)
+        @projects[params[:project_name]].build
+      end
+      redirect "/#{params[:project_name]}"
+    end
+
     helpers do
       include Rack::Utils
       alias_method :h, :escape_html
@@ -31,39 +48,26 @@ class CIJoe
       end
     end
 
-    def self.start(host, port, config_file)
-      projects = {}
-      config = YAML.load_file(config_file)
+    def initialize(*args)
+      super
+      @projects = {}
+      config = YAML.load_file(options.projects_config_file)
 
       config.each do |key, project|
         cijoe = CIJoe.new(project["path"])
-        projects[cijoe.project] = cijoe
-      end
-      
-      get '/:project_name' do
-        pass unless params[:project_name]
-        erb(:template, {}, :joe => projects[params[:project_name]])
-      end
-      
-      get '/' do
-        erb(:index, {}, :projects => projects)
-      end
-
-      post '/:project_name' do
-        payload = params[:payload].to_s
-        if payload.empty? || payload.include?(projects[params[:project_name]].git_branch)
-          projects[params[:project_name]].build
-        end
-        redirect "/#{params[:project_name]}"
+        @projects[cijoe.project] = cijoe
       end
 
       setup_auth
 
       CIJoe::Campfire.activate
+    end
+
+    def self.start(host, port)
       CIJoe::Server.run! :host => host, :port => port
     end
 
-    def self.check_project(project)
+    def check_project(project)
       if project.nil? || !File.exists?(project)
         puts "Whoops! I need the path to a Git repo."
         puts "  $ git clone git@github.com:username/project.git project"
@@ -71,7 +75,7 @@ class CIJoe
       end
     end
 
-    def self.setup_auth
+    def setup_auth
       user, pass = Config.cijoe.user.to_s, Config.cijoe.pass.to_s
 
       if user != '' && pass != ''
