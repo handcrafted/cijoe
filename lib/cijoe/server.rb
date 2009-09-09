@@ -63,7 +63,8 @@ class CIJoe
       CIJoe::Campfire.activate
     end
 
-    def self.start(host, port)
+    def self.start(host, port, config_file)
+      set :projects_config_file, config_file
       CIJoe::Server.run! :host => host, :port => port
     end
 
